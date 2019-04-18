@@ -72,6 +72,8 @@ class Indexer:
             numberOfFilesToProcess = self.numberOfFiles
         self.processFiles(numberOfFilesToProcess)
         self.createPostingList()
+        outputFile = open("dict.txt", 'w')
+        outputFile.write(str(self.dictionary))
         
 # =========================================================================
 #       Processes Files in directory and calls self.addWords()
