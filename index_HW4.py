@@ -310,4 +310,4 @@ def exportDS(DS, outputFile):
 # =========================================================================
 indexer = Indexer(dummyDocs, output_file_dictionary, output_file_postings)
 indexer.indexDictionary(1)
-# python27 index.py -i E://nltk_data/corpora/reuters/training/ -d dictionary.txt -p postings.txt
+# python index_HW4.py -i E://nltk_data/corpora/reuters/training/ -d dictionary.txt -p postings.txt

@@ -137,4 +137,4 @@ def test(dictionary, postingsFile):
 dictionary = importDS(dictionary_file)
 postingsFile = open(postings_file, 'r')
 test(dictionary, postingsFile)
-#  python2.7 search.py -d dictionary.txt -p postings.txt -q queries.txt -o output.txt
+#  python search_HW4.py -d dictionary.txt -p postings.txt -q queries.txt -o output.txt
