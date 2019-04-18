@@ -68,7 +68,7 @@ class Indexer:
         self.processFiles(numberOfFilesToProcess)
         self.createPostingList()
         exportDS(self.dictionary, self.dictionaryFile)
-        print(self.dictionary)
+        #print(self.dictionary)
         
 # =========================================================================
 #       Processes Files in directory and calls self.addWords()
@@ -173,13 +173,14 @@ class Indexer:
         data.write("")
         data.close()
         for word in self.dictionary:
-            if word is "DOC_ID":
+            if word == "DOC_ID":
                 continue
             docfreq = self.dictionary[word]["docFreq"]
             index = self.dictionary[word]["index"]
             #print(word)
             posting = createPosting(self.tempPostingList[index])
             startPointer = addPosting(posting, self.postingsFile)
+            self.dictionary[word]["index"] = startPointer
             #print(posting)
             # skipPosting = createSkipPosting(posting, docfreq)
             # # print(skipPosting)
