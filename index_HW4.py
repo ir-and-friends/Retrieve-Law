@@ -27,8 +27,8 @@ except getopt.GetoptError, err:
     sys.exit(2)
 
 for o, a in opts:
-    if o == '-i':  # input directory
-        input_directory = a
+    if o == '-i':  # input dictionary
+        input_dictionary = a
     elif o == '-d':  # dictionary file
         output_file_dictionary = a
     elif o == '-p':  # postings file
@@ -36,16 +36,21 @@ for o, a in opts:
     else:
         assert False, "unhandled option"
 
-if input_directory == None or output_file_postings == None or output_file_dictionary == None:
+if input_dictionary == None or output_file_postings == None or output_file_dictionary == None:
     usage()
     sys.exit(2)
 
 dummyDocs = dict()
-dummyDocs["caseID"] = dict()
-dummyDocs["caseID"]["title"] = list(("The", "case", "thickens"))
-dummyDocs["caseID"]["content"] = list(("This", "is", "the", "case", "where", "the", "fish", "was", "eaten"))
-dummyDocs["caseID"]["date"] = list(("19", "April", "2019"))
-dummyDocs["caseID"]["court"] = list(("Supreme", "court"))
+dummyDocs["1"] = dict()
+dummyDocs["1"]["title"] = list(("The", "case", "thickens"))
+dummyDocs["1"]["content"] = list(("This", "is", "the", "case", "where", "the", "fish", "was", "eaten"))
+dummyDocs["1"]["date_posted"] = list(("19", "April", "2019"))
+dummyDocs["1"]["court"] = list(("Supreme", "court"))
+dummyDocs["2"] = dict()
+dummyDocs["2"]["title"] = list(("The", "case", "thickens"))
+dummyDocs["2"]["content"] = list(("This", "is", "the", "case", "where", "the", "fish", "was", "eaten"))
+dummyDocs["2"]["date_posted"] = list(("19", "April", "2019"))
+dummyDocs["2"]["court"] = list(("Supreme", "court"))
 
 # =========================================================================
 #
@@ -67,8 +72,6 @@ class Indexer:
             numberOfFilesToProcess = self.numberOfFiles
         self.processFiles(numberOfFilesToProcess)
         self.createPostingList()
-        exportDS(self.dictionary, self.dictionaryFile)
-        #print(self.dictionary)
         
 # =========================================================================
 #       Processes Files in directory and calls self.addWords()
@@ -82,9 +85,9 @@ class Indexer:
                 break
             titleDict = makeGrams(self.input_dictionary[caseID]["title"])
             contentDict = makeGrams(self.input_dictionary[caseID]["content"])
-            dateDict = makeGrams(self.input_dictionary[caseID]["date"])
+            dateDict = makeGrams(self.input_dictionary[caseID]["date_posted"])
             courtDict = makeGrams(self.input_dictionary[caseID]["court"])
-            dictToProcess = dict(title = titleDict, content = contentDict, date = dateDict, court = courtDict)
+            dictToProcess = dict(title = titleDict, content = contentDict, date_posted = dateDict, court = courtDict)
             length  = self.calcLen(makeUniGrams(self.input_dictionary[caseID]["content"]))
             self.dictionary["DOC_ID"][str(count)] = tuple((caseID, length))
             self.addWords(dictToProcess, str(count))
@@ -117,24 +120,36 @@ class Indexer:
             #print(word)
             self.addWord(word, fileIndex)
             index = self.dictionary[word]["index"]
+            if fileIndex not in self.tempPostingList[index]:
+                self.tempPostingList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
+                self.dictionary[word]["docFreq"] += 1
             self.tempPostingList[index][fileIndex]["title"] += dictionary["title"][word]
         
         for word in dictionary["content"]:
             #print(word)
             self.addWord(word, fileIndex)
             index = self.dictionary[word]["index"]
+            if fileIndex not in self.tempPostingList[index]:
+                self.tempPostingList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
+                self.dictionary[word]["docFreq"] += 1
             self.tempPostingList[index][fileIndex]["content"] += dictionary["content"][word]
             
-        for word in dictionary["date"]:
+        for word in dictionary["date_posted"]:
             #print(word)
             self.addWord(word, fileIndex)
             index = self.dictionary[word]["index"]
-            self.tempPostingList[index][fileIndex]["date"] += dictionary["date"][word]
+            if fileIndex not in self.tempPostingList[index]:
+                self.tempPostingList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
+                self.dictionary[word]["docFreq"] += 1
+            self.tempPostingList[index][fileIndex]["date_posted"] += dictionary["date_posted"][word]
         
         for word in dictionary["court"]:
             #print(word)
             self.addWord(word, fileIndex)
             index = self.dictionary[word]["index"]
+            if fileIndex not in self.tempPostingList[index]:
+                self.tempPostingList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
+                self.dictionary[word]["docFreq"] += 1
             self.tempPostingList[index][fileIndex]["court"] += dictionary["court"][word]
         
         # for word in words:
@@ -159,7 +174,7 @@ class Indexer:
             #print("found new word " + word + " in document " + str(count))  
             self.dictionary[word] = dict(docFreq = 1, index = len(self.tempPostingList))
             tempList = dict()
-            tempList[count] = dict(title = 0, content = 0, date = 0, court = 0)
+            tempList[count] = dict(title = 0, content = 0, date_posted = 0, court = 0)
             self.tempPostingList.append(tempList)
                 
 # =========================================================================
@@ -272,8 +287,8 @@ def createPosting(postings):
     for fileIndex in postings:
         posting += str(len(fileIndex)).zfill(2) + fileIndex  # len of posting is padded to make it 2 digit
         posting += str(postings[fileIndex]["title"])
-        posting += str(len(str(postings[fileIndex]["content"]))) + str(postings[fileIndex]["content"])
-        posting += str(postings[fileIndex]["date"])
+        posting += str(len(str(postings[fileIndex]["content"]))).zfill(1) + str(postings[fileIndex]["content"])
+        posting += str(postings[fileIndex]["date_posted"])
         posting += str(postings[fileIndex]["court"])
     posting += "\n"
     return posting
@@ -302,12 +317,23 @@ def exportDS(DS, outputFile):
     outputFile = open(outputFile, 'w')
     outputFile.write(DS_string)
     return 
+    
+# =========================================================================
+#       Exports the dataStructure using pickle interface
+#           input:inputFile(String)
+#           output: DS(object)
+# =========================================================================  
+def importDSByte(inputFile):
+    data = open(inputFile, 'rb')
+    DS = pickle.load(data)
+    return DS
 
 # =========================================================================
 #
 #                           RUN
 #
 # =========================================================================
-indexer = Indexer(dummyDocs, output_file_dictionary, output_file_postings)
-indexer.indexDictionary(1)
-# python index_HW4.py -i E://nltk_data/corpora/reuters/training/ -d dictionary.txt -p postings.txt
+input_dictionary = importDSByte(input_dictionary)
+indexer = Indexer(input_dictionary, output_file_dictionary, output_file_postings)
+indexer.indexDictionary(0)
+# python index_HW4.py -i preprocessing.txt -d dictionary.txt -p postings.txt
