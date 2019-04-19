@@ -39,13 +39,13 @@ for o, a in opts:
 if input_directory == None or output_file_postings == None or output_file_dictionary == None:
     usage()
     sys.exit(2)
-    
-dummyDict = dict()
-dummyDict["1"] = dict()
-dummyDict["1"]["title"] = dict(Doc = 1)
-dummyDict["1"]["content"] = dict(hello = 2, Li = 1, Jen = 1, FYP = 1)
-dummyDict["1"]["date"] = dict(April = 1)
-dummyDict["1"]["court"] = dict(Supreme = 1, Court = 1)
+
+dummyDocs = dict()
+dummyDocs["caseID"] = dict()
+dummyDocs["caseID"]["title"] = list(("The", "case", "thickens"))
+dummyDocs["caseID"]["content"] = list(("This", "is", "the", "case", "where", "the", "fish", "was", "eaten"))
+dummyDocs["caseID"]["date"] = list(("19", "April", "2019"))
+dummyDocs["caseID"]["court"] = list(("Supreme", "court"))
 
 # =========================================================================
 #
@@ -67,7 +67,8 @@ class Indexer:
             numberOfFilesToProcess = self.numberOfFiles
         self.processFiles(numberOfFilesToProcess)
         self.createPostingList()
-        # exportDS(self.dictionary, self.dictionaryFile)
+        exportDS(self.dictionary, self.dictionaryFile)
+        #print(self.dictionary)
         
 # =========================================================================
 #       Processes Files in directory and calls self.addWords()
@@ -75,17 +76,37 @@ class Indexer:
 #           output: None
 # =========================================================================   
     def processFiles(self, numberOfFilesToProcess):
-        count = 0
-        for fileName in self.input_dictionary:
+        count = 0        
+        for caseID in self.input_dictionary:
             if count > numberOfFilesToProcess:
                 break
-            length  = 0
-            self.dictionary["DOC_ID"][str(count)] = tuple((fileName, length))
+            titleDict = makeGrams(self.input_dictionary[caseID]["title"])
+            contentDict = makeGrams(self.input_dictionary[caseID]["content"])
+            dateDict = makeGrams(self.input_dictionary[caseID]["date"])
+            courtDict = makeGrams(self.input_dictionary[caseID]["court"])
+            dictToProcess = dict(title = titleDict, content = contentDict, date = dateDict, court = courtDict)
+            length  = self.calcLen(makeUniGrams(self.input_dictionary[caseID]["content"]))
+            self.dictionary["DOC_ID"][str(count)] = tuple((caseID, length))
+            self.addWords(dictToProcess, str(count))
             count += 1
-            self.addWords(self.input_dictionary[fileName], str(count))
             # lengthOfFile = self.calcLen(words)
             # self.dictionary["DOC_ID"][str(fileNumber)] = tuple((fileName, lengthOfFile)) 
-            
+
+# =========================================================================
+#       Calculates the length based on log(tf)
+#           input: words(Dictionary)
+#           output: None
+# ========================================================================= 
+    def calcLen(self, words):
+        squareSum = 0
+        for word in words:
+            tf = words[word]
+            tf = 1 + math.log(tf, 10)
+            squareSum += tf ** 2
+        LENGTH = math.sqrt(squareSum)
+        return LENGTH        
+        
+        
 # =========================================================================
 #       Adds each word in the file to self.dictionary and self.tempPostingList
 #           input: words(Dictionary), fileName(String)
@@ -152,13 +173,14 @@ class Indexer:
         data.write("")
         data.close()
         for word in self.dictionary:
-            if word is "DOC_ID":
+            if word == "DOC_ID":
                 continue
             docfreq = self.dictionary[word]["docFreq"]
             index = self.dictionary[word]["index"]
             #print(word)
             posting = createPosting(self.tempPostingList[index])
             startPointer = addPosting(posting, self.postingsFile)
+            self.dictionary[word]["index"] = startPointer
             #print(posting)
             # skipPosting = createSkipPosting(posting, docfreq)
             # # print(skipPosting)
@@ -167,6 +189,77 @@ class Indexer:
             # self.dictionary[word]["index"] = startPointer
         return
         
+# =========================================================================
+#       Processes input of dictionary of lists into dictionary of dictionary
+#           input: list of words)
+#           output: dictionary of grams
+# ========================================================================= 
+def makeGrams(list):
+    dictOfGrams = dict()
+    
+    dictOfGrams.update(makeUniGrams(list))
+    dictOfGrams.update(makeBiGrams(list))
+    dictOfGrams.update(makeTriGrams(list))
+    
+    return dictOfGrams
+
+# =========================================================================
+#       Processes list into dictionary of uniGrams
+#           input: list of words
+#           output: dictionary of uniGrams
+# =========================================================================
+def makeUniGrams(list):
+    words = dict()
+    for word in list:
+        if word not in words:
+            #print(word)
+            words[word] = 1
+        else:
+            words[word] += 1
+    return words
+    
+# =========================================================================
+#       Processes list into dictionary of uniGrams
+#           input: list of words
+#           output: dictionary of uniGrams
+# =========================================================================
+def makeBiGrams(list):
+    words = dict()
+    count = 0
+    for word in list:
+        if count > 0:
+            biWord = prevWord + " " + word
+            if biWord not in words:
+                #print(biWord)
+                words[biWord] = 1
+            else:
+                words[biWord] += 1
+        prevWord = word
+        count += 1
+    return words
+    
+# =========================================================================
+#       Processes list into dictionary of uniGrams
+#           input: list of words
+#           output: dictionary of uniGrams
+# =========================================================================
+def makeTriGrams(list):
+    words = dict()
+    count = 0
+    for word in list:
+        if count > 1:
+            triWord = prevPrevWord + " " + prevWord + " " + word
+            if triWord not in words:
+                #print(triWord)
+                words[triWord] = 1
+            else:
+                words[triWord] += 1
+        if count > 0:
+            prevPrevWord = prevWord
+        prevWord = word
+        count += 1
+    return words
+    
 # =========================================================================
 #       Creates posting for one word first two digits represent the length
 #           of fileIndex, followed by fileIndex, followed by two digits 
@@ -215,6 +308,6 @@ def exportDS(DS, outputFile):
 #                           RUN
 #
 # =========================================================================
-indexer = Indexer(dummyDict, output_file_dictionary, output_file_postings)
+indexer = Indexer(dummyDocs, output_file_dictionary, output_file_postings)
 indexer.indexDictionary(1)
-# python27 index.py -i E://nltk_data/corpora/reuters/training/ -d dictionary.txt -p postings.txt
+# python index_HW4.py -i E://nltk_data/corpora/reuters/training/ -d dictionary.txt -p postings.txt
