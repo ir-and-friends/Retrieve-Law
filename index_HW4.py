@@ -7,6 +7,7 @@ import getopt
 import os
 import cPickle as pickle
 import math
+import tf_idf
 
 # =========================================================================
 #
@@ -85,26 +86,12 @@ class Indexer:
             dateDict = makeGrams(self.input_dictionary[caseID]["date"])
             courtDict = makeGrams(self.input_dictionary[caseID]["court"])
             dictToProcess = dict(title = titleDict, content = contentDict, date = dateDict, court = courtDict)
-            length  = self.calcLen(makeUniGrams(self.input_dictionary[caseID]["content"]))
+            length  = tf_idf.getLncLen(makeUniGrams(self.input_dictionary[caseID]["content"]))
             self.dictionary["DOC_ID"][str(count)] = tuple((caseID, length))
             self.addWords(dictToProcess, str(count))
             count += 1
             # lengthOfFile = self.calcLen(words)
-            # self.dictionary["DOC_ID"][str(fileNumber)] = tuple((fileName, lengthOfFile)) 
-
-# =========================================================================
-#       Calculates the length based on log(tf)
-#           input: words(Dictionary)
-#           output: None
-# ========================================================================= 
-    def calcLen(self, words):
-        squareSum = 0
-        for word in words:
-            tf = words[word]
-            tf = 1 + math.log(tf, 10)
-            squareSum += tf ** 2
-        LENGTH = math.sqrt(squareSum)
-        return LENGTH        
+            # self.dictionary["DOC_ID"][str(fileNumber)] = tuple((fileName, lengthOfFile))
         
         
 # =========================================================================
