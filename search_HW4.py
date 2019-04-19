@@ -140,7 +140,7 @@ def processQuery(dictionary, query):
             score_list[docID][4] += partial_score(contentCount, posting, q_score[q_word])
             posting = getNextPosting(p_list)
 
-    return heapq.nlargest(10, score_list)
+    return sorted(score_list.items(), key=lambda k:k[1])
 
 # =========================================================================
 #       Imports the dataStructure using pickle interface
