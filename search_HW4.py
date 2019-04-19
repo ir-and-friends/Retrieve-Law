@@ -42,59 +42,118 @@ if dictionary_file == None or postings_file == None or file_of_queries == None o
     usage()
     sys.exit(2)
 
-#=========================================================================
-#       Extracts a posting list for a word
-#           input: Word, dictionary, posting list(type: file object)
-#           returns: postingList(type: String)
-#========================================================================= 
-def extractPostingList(word, dictionary, postingsFile):
-    if word not in dictionary:
-        return ""
-    startPointer = dictionary[word]["index"]
-    postingsFile.seek(startPointer)
-    postingList = postingsFile.readline()
-    return postingList
+
+# =========================================================================
+#
+#                           Posting Class
+#
+# ========================================================================= 
+class Posting:
+    def __init__(self, docID, titleCount, contentCount, dateCount, courtCount):
+        self.currentDocID = docID
+        self.currentTitleCount = titleCount
+        self.currentContentCount = contentCount
+        self.currentDateCount = dateCount
+        self.currentCourtCount = courtCount
+        self.currentCombinedTF = titleCount + contentCount + dateCount + courtCount\
+        
+        
+    def getDocID(self):
+        return self.currentDocID
+        
+    def getTitleCount(self):
+        return self.currentTitleCount
+        
+    def getContentCount(self):
+        return self.currentContentCount
+       
+    def getDateCount(self):
+        return self.currentDateCount
+        
+    def getCourtCount(self):
+        return self.currentCourtCount
+        
+    def getTF(self):
+        return self.currentCombinedTF
     
 # =========================================================================
-#       Extracts the data from posting list given a startPointer and postingList
-#           input: postingList(String), nextStartPointer(int)
-#           output: checker(String), postinglength(int), docName(String),
-#                skipPointer(int), nextStartPointer(int), termFreq(int), 
-#                TFlength(String)
+#
+#                           PostingHandler Class
+#
 # =========================================================================
-def extractPosting(postingList, nextStartPointer):
-    docIDLen = int(postingList[nextStartPointer : nextStartPointer + 2])
-    nextStartPointer += 2
-    docID = postingList[nextStartPointer : nextStartPointer + docIDLen]
-    nextStartPointer += docIDLen
-    titleCount = int(postingList[nextStartPointer : nextStartPointer + 1])
-    nextStartPointer += 1
-    contentCountLen = int(postingList[nextStartPointer : nextStartPointer + 1])
-    nextStartPointer += 1
-    contentCount = int(postingList[nextStartPointer : nextStartPointer + contentCountLen])
-    nextStartPointer += contentCountLen
-    dateCount = int(postingList[nextStartPointer : nextStartPointer + 1])
-    nextStartPointer += 1
-    courtCount = int(postingList[nextStartPointer : nextStartPointer + 1])
-    nextStartPointer += 1
+class PostingHandler:
+    def __init__(self, dictionary_file, postings_file):
+        self.dictionaryFile = dictionary_file
+        self.postingsFile = open(postings_file, 'r')
+        self.dictionary = importDS(self.dictionaryFile)
+        self.currentPostingsList = ""
+        self.currentWord = ""
+        self.currentPointer = None 
+        self.currentDocFreq = 0
+        self.postingIndex = 0
+        self.currentPosting = None
+        
+        
+    def getDocLength(self, docID):
+        return self.dictionary["DOC_ID"][docID][1]
+        
+    def getDocName(self, docID):
+        return self.dictionary["DOC_ID"][docID][0]
+        
+    def getDocFreq(self, word):
+        if word in self.dictionary:
+            return self.dictionary[word]["docFreq"]
+        else:
+            return 0
+            
+    def getStartPointer(self, word):
+        if word in self.dictionary:
+            return self.dictionary[word]["index"]
+        else:
+            print("No such word: " + word + "in dictionary!")
+            
+    def extractPostingList(self, word):
+        self.currentWord = word
+        if word not in self.dictionary:
+            return False
+        startPointer = self.getStartPointer(word)
+        self.postingsFile.seek(startPointer)
+        postingList = self.postingsFile.readline()
+        
+        self.currentPostingsList = postingList
+        self.currentPointer = 0
+        self.currentDocFreq = self.getDocFreq(word)
+        self.postingIndex = 0
+        
+        return True 
+        
+    def getNextPosting(self):
+        self.postingIndex += 1
+        if self.postingIndex > self.currentDocFreq:
+            return None
+            
+        nextStartPointer = self.currentPointer
     
-    return docID, titleCount, contentCount, dateCount, courtCount, nextStartPointer
-    
-# =========================================================================
-#       Return the sqrtLen given DOC_ID
-#           input: dictionary, DOC_ID(int)
-#           output: docName(String)
-# =========================================================================
-def getDocLength(dictionary, docID):
-    return dictionary["DOC_ID"][docID][1]
-    
-# =========================================================================
-#       Return the docName given DOC_ID
-#           input: dictionary, DOC_ID(int)
-#           output: docName(String)
-# =========================================================================
-def getDocName(dictionary, docID):
-    return dictionary["DOC_ID"][docID][0]
+        docIDLen = int(self.currentPostingsList[nextStartPointer : nextStartPointer + 2])
+        nextStartPointer += 2
+        docID = self.currentPostingsList[nextStartPointer : nextStartPointer + docIDLen]
+        nextStartPointer += docIDLen
+        titleCount = int(self.currentPostingsList[nextStartPointer : nextStartPointer + 1])
+        nextStartPointer += 1
+        contentCountLen = int(self.currentPostingsList[nextStartPointer : nextStartPointer + 1])
+        nextStartPointer += 1
+        contentCount = int(self.currentPostingsList[nextStartPointer : nextStartPointer + contentCountLen])
+        nextStartPointer += contentCountLen
+        dateCount = int(self.currentPostingsList[nextStartPointer : nextStartPointer + 1])
+        nextStartPointer += 1
+        courtCount = int(self.currentPostingsList[nextStartPointer : nextStartPointer + 1])
+        nextStartPointer += 1
+        
+        self.currentPointer = nextStartPointer
+        self.currentPosting = Posting(docID, titleCount, contentCount, dateCount, courtCount)
+        
+        return self.currentPosting
+        
     
 # =========================================================================
 #       Imports the dataStructure using pickle interface
@@ -111,21 +170,10 @@ def importDS(outputFile):
 #                           TEST
 #
 # =========================================================================    
-def test(dictionary, postingsFile):   
-    for word in dictionary:
-        if word == "DOC_ID":
-            continue
-        print(word)
-        posting = extractPostingList(word, dictionary, postingsFile)
-        df = dictionary[word]["docFreq"]
-        nextStartPointer = 0
-        for index in range(df):
-            docID, titleCount, contentCount, dateCount, courtCount, nextStartPointer = extractPosting(posting, nextStartPointer)
-            print("Case number = " + getDocName(dictionary, docID))
-            print(contentCount)
-        print(getDocLength(dictionary, docID))
-            
-        
+def test(postingHandler):
+    print(postingHandler.getDocFreq("SINGAPORE Vlogger"))
+    print(postingHandler.extractPostingList("SINGAPORE Vlogger"))
+    print(postingHandler.getNextPosting().getContentCount())
     
     
 # =========================================================================
@@ -134,7 +182,6 @@ def test(dictionary, postingsFile):
 #
 # =========================================================================
 #queries = processQueries(file_of_queries)
-dictionary = importDS(dictionary_file)
-postingsFile = open(postings_file, 'r')
-test(dictionary, postingsFile)
+postingHandler = PostingHandler(dictionary_file, postings_file)
+test(postingHandler)
 #  python search_HW4.py -d dictionary.txt -p postings.txt -q queries.txt -o output.txt

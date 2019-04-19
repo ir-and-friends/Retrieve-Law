@@ -51,6 +51,13 @@ dummyDocs["2"]["title"] = list(("The", "case", "thickens"))
 dummyDocs["2"]["content"] = list(("This", "is", "the", "case", "where", "the", "fish", "was", "eaten"))
 dummyDocs["2"]["date_posted"] = list(("19", "April", "2019"))
 dummyDocs["2"]["court"] = list(("Supreme", "court"))
+dummyDocs["3"] = dict()
+title = "This is the title"
+dummyDocs["3"]["title"] = title[0].split()
+print(dummyDocs["3"]["title"])
+dummyDocs["3"]["content"] = list(("This", "is", "the", "case", "where", "the", "fish", "was", "eaten"))
+dummyDocs["3"]["date_posted"] = list(("19", "April", "2019"))
+dummyDocs["3"]["court"] = list(("Supreme", "court"))
 
 # =========================================================================
 #
@@ -82,8 +89,7 @@ class Indexer:
         if numberOfFilesToProcess is 0:
             numberOfFilesToProcess = self.numberOfFiles
         self.processFiles(numberOfFilesToProcess)
-        outputFile = open("dict.txt", 'w')
-        outputFile.write(str(self.dictionary))
+        exportDS(self.dictionary, self.dictionaryFile)
         
 # =========================================================================
 #       Processes Files in directory and calls self.addWords()
@@ -105,7 +111,7 @@ class Indexer:
             
             self.addWords(dictToProcess, str(count))
             
-            if ((count + 1) % 50) is 0:
+            if ((count + 1) % 1000) is 0:
                 if self.whichFile is 1:
                     oldFile = self.tempPostingA
                     newFile = self.tempPostingB
