@@ -105,7 +105,7 @@ class Indexer:
             
             self.addWords(dictToProcess, str(count))
             
-            if ((count + 1) % 10) is 0:
+            if ((count + 1) % 50) is 0:
                 if self.whichFile is 1:
                     oldFile = self.tempPostingA
                     newFile = self.tempPostingB
@@ -117,6 +117,7 @@ class Indexer:
                 self.mergePosting(self.local_dictionary, self.local_posting_asList, oldFile, newFile)
                 self.local_dictionary = dict()
                 self.local_posting_asList = list()
+                print(str(count+1) + " out of " + str(numberOfFilesToProcess) + " files processed.")
                 
             count += 1
             # lengthOfFile = self.calcLen(words)
@@ -223,18 +224,19 @@ class Indexer:
 #           output: 
 # =========================================================================
     def mergePosting(self, local_dictionary, local_posting_asList, oldPostingFilePath, newPostingFile):
-        wordsDone = dict()
         oldPostingFile = open(oldPostingFilePath, 'r')
+        data = open(newPostingFile, "w")
+        data.write("")
+        data.close()
         
         for word in local_dictionary:
             if word in self.dictionary:
-                posting = extractPostingList(word, self.dictionary, oldPostingFile)
+                posting = extractPostingList(word, self.dictionary, oldPostingFile).rstrip()
                 index = local_dictionary[word]["index"]
                 posting = createPosting(local_posting_asList[index], posting)
                 startPointer = addPosting(posting, newPostingFile)
                 self.dictionary[word]["index"] = startPointer
                 self.dictionary[word]["docFreq"] += local_dictionary[word]["docFreq"]
-                wordsDone[word] = 0
             else:
                 posting = ""
                 index = local_dictionary[word]["index"]
@@ -245,7 +247,7 @@ class Indexer:
                 self.dictionary[word]["docFreq"] = local_dictionary[word]["docFreq"]
         
         for word in self.dictionary:
-            if word not in wordsDone:
+            if not word in local_dictionary:
                 if word == "DOC_ID":
                     continue
                 posting = extractPostingList(word, self.dictionary, oldPostingFile)
@@ -359,8 +361,6 @@ def addPosting(Posting, outputFile):
 #           returns: postingList(type: String)
 #========================================================================= 
 def extractPostingList(word, dictionary, postingsFile):
-    if word not in dictionary:
-        return ""
     startPointer = dictionary[word]["index"]
     postingsFile.seek(startPointer)
     postingList = postingsFile.readline()
