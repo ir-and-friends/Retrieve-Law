@@ -38,19 +38,15 @@ def get_lnc(tf, doc_len):
 
 # =========================================================================
 #       Normalises based on LNC
-#           input: dictionary(dict), words(dict)
+#           input: words(dict)
 #           output: docName(String)
 # =========================================================================
 
-def getLncLen(dictionary, words):
-    N = len(dictionary["DOC_ID"])
+def getLncLen(words):
     sum_w = 0.0
     for w in words:
-        if w not in dictionary:
-            continue
-        else:
-            tf = getTf(w)
-            sum_w += get_ln(tf) ** 2
+        tf = words[w]
+        sum_w += get_ln(tf) ** 2
 
     # Apply sqrt
     lnc_len = math.sqrt(sum_w)
@@ -71,7 +67,7 @@ def getLtcLen(dictionary, words):
             continue
         else:
             df = dictionary[w]['docFreq']
-            tf = getTf(w)
+            tf = words[w]
             sum_w += get_lt(tf, N, df) ** 2
 
     # Apply sqrt
