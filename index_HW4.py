@@ -7,6 +7,7 @@ import getopt
 import os
 import cPickle as pickle
 import math
+import tf_idf
 
 # =========================================================================
 #
@@ -106,8 +107,8 @@ class Indexer:
             contentDict = makeGrams(self.input_dictionary[caseID]["content"])
             dateDict = makeGrams(self.input_dictionary[caseID]["date_posted"])
             courtDict = makeGrams(self.input_dictionary[caseID]["court"])
-            dictToProcess = dictToProcess = dict(title = titleDict, content = contentDict, date_posted = dateDict, court = courtDict)
-            length  = self.calcLen(makeUniGrams(self.input_dictionary[caseID]["content"]))
+            dictToProcess = dict(title = titleDict, content = contentDict, date = dateDict, court = courtDict)
+            length  = tf_idf.getLncLen(makeUniGrams(self.input_dictionary[caseID]["content"]))
             self.dictionary["DOC_ID"][str(count)] = tuple((caseID, length))
             print("Adding Words")
             self.addWords(dictToProcess, str(count))
@@ -145,20 +146,6 @@ class Indexer:
         self.mergePosting(self.local_dictionary, self.local_posting_asList, oldFile, self.postingsFile)
         self.local_dictionary = dict()
         self.local_posting_asList = list()
-
-# =========================================================================
-#       Calculates the length based on log(tf)
-#           input: words(Dictionary)
-#           output: None
-# ========================================================================= 
-    def calcLen(self, words):
-        squareSum = 0
-        for word in words:
-            tf = words[word]
-            tf = 1 + math.log(tf, 10)
-            squareSum += tf ** 2
-        LENGTH = math.sqrt(squareSum)
-        return LENGTH        
         
         
 # =========================================================================
