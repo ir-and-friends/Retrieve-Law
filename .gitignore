@@ -1,4 +1,6 @@
 postings.txt
+preprocessing.txt
+data/dataset.csv
 dictionary.txt
 dataset.csv
 .idea/vcs.xml
