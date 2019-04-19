@@ -54,7 +54,6 @@ dummyDocs["2"]["court"] = list(("Supreme", "court"))
 dummyDocs["3"] = dict()
 title = "This is the title"
 dummyDocs["3"]["title"] = title[0].split()
-print(dummyDocs["3"]["title"])
 dummyDocs["3"]["content"] = list(("This", "is", "the", "case", "where", "the", "fish", "was", "eaten"))
 dummyDocs["3"]["date_posted"] = list(("19", "April", "2019"))
 dummyDocs["3"]["court"] = list(("Supreme", "court"))
@@ -89,6 +88,7 @@ class Indexer:
         if numberOfFilesToProcess is 0:
             numberOfFilesToProcess = self.numberOfFiles
         self.processFiles(numberOfFilesToProcess)
+        print("Pickle")
         exportDS(self.dictionary, self.dictionaryFile)
         
 # =========================================================================
@@ -101,17 +101,22 @@ class Indexer:
         for caseID in self.input_dictionary:
             if count > numberOfFilesToProcess:
                 break
+            print("Making grams")
             titleDict = makeGrams(self.input_dictionary[caseID]["title"])
             contentDict = makeGrams(self.input_dictionary[caseID]["content"])
             dateDict = makeGrams(self.input_dictionary[caseID]["date_posted"])
             courtDict = makeGrams(self.input_dictionary[caseID]["court"])
-            dictToProcess = dict(title = titleDict, content = contentDict, date_posted = dateDict, court = courtDict)
+            dictToProcess = dictToProcess = dict(title = titleDict, content = contentDict, date_posted = dateDict, court = courtDict)
             length  = self.calcLen(makeUniGrams(self.input_dictionary[caseID]["content"]))
             self.dictionary["DOC_ID"][str(count)] = tuple((caseID, length))
-            
+            print("Adding Words")
             self.addWords(dictToProcess, str(count))
             
-            if ((count + 1) % 1000) is 0:
+            if ((count + 1) % 10) is 0:
+                print(str(count+1) + " out of " + str(numberOfFilesToProcess) + " files processed.")
+            
+            if ((count + 1) % 10000) is 0:
+                print("Writing File")
                 if self.whichFile is 1:
                     oldFile = self.tempPostingA
                     newFile = self.tempPostingB
@@ -123,12 +128,12 @@ class Indexer:
                 self.mergePosting(self.local_dictionary, self.local_posting_asList, oldFile, newFile)
                 self.local_dictionary = dict()
                 self.local_posting_asList = list()
-                print(str(count+1) + " out of " + str(numberOfFilesToProcess) + " files processed.")
                 
             count += 1
             # lengthOfFile = self.calcLen(words)
             # self.dictionary["DOC_ID"][str(fileNumber)] = tuple((fileName, lengthOfFile)) 
-            
+        
+        print("Writing File")
         if self.whichFile is 1:
             oldFile = self.tempPostingA
             newFile = self.tempPostingB
@@ -197,7 +202,6 @@ class Indexer:
                 self.local_posting_asList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
                 self.local_dictionary[word]["docFreq"] += 1
             self.local_posting_asList[index][fileIndex]["court"] += dictionary["court"][word]
-        
         # for word in words:
             # if word not in self.local_dictionary:
                 # #print("found new word " + word + " in document " + fileName)
@@ -268,9 +272,7 @@ class Indexer:
 def makeGrams(list):
     dictOfGrams = dict()
     
-    dictOfGrams.update(makeUniGrams(list))
-    dictOfGrams.update(makeBiGrams(list))
-    dictOfGrams.update(makeTriGrams(list))
+    dictOfGrams.update(makeAllGrams(list))
     
     return dictOfGrams
 
@@ -332,6 +334,44 @@ def makeTriGrams(list):
     return words
     
 # =========================================================================
+#       Processes list into dictionary of uniGrams
+#           input: list of words
+#           output: dictionary of uniGrams
+# =========================================================================
+def makeAllGrams(list):
+    words = dict()
+    count = 0
+    for word in list:
+        
+        if word not in words:
+            #print(word)
+            words[word] = 1
+        else:
+            words[word] += 1
+        
+        if count > 0:
+            biWord = prevWord + " " + word
+            if biWord not in words:
+                #print(biWord)
+                words[biWord] = 1
+            else:
+                words[biWord] += 1
+    
+        if count > 1:
+            triWord = prevPrevWord + " " + prevWord + " " + word
+            if triWord not in words:
+                #print(triWord)
+                words[triWord] = 1
+            else:
+                words[triWord] += 1
+        
+        if count > 0:
+            prevPrevWord = prevWord
+        prevWord = word
+        count += 1
+    return words
+    
+# =========================================================================
 #       Creates posting for one word first two digits represent the length
 #           of fileIndex, followed by fileIndex, followed by two digits 
 #           representing the length of termFreq, followed by termFreq \n
@@ -339,13 +379,15 @@ def makeTriGrams(list):
 #           output: posting(String)
 # =========================================================================
 def createPosting(postings, posting):
+    list_of_str = list()
     for fileIndex in postings:
-        posting += str(len(fileIndex)).zfill(2) + fileIndex  # len of posting is padded to make it 2 digit
-        posting += str(postings[fileIndex]["title"])
-        posting += str(len(str(postings[fileIndex]["content"]))).zfill(1) + str(postings[fileIndex]["content"])
-        posting += str(postings[fileIndex]["date_posted"])
-        posting += str(postings[fileIndex]["court"])
-    posting += "\n"
+        list_of_str.append(str(len(fileIndex)).zfill(2) + fileIndex)
+        list_of_str.append(str(postings[fileIndex]["title"]))
+        list_of_str.append(str(len(str(postings[fileIndex]["content"]))).zfill(1) + str(postings[fileIndex]["content"]))
+        list_of_str.append(str(postings[fileIndex]["date_posted"]))
+        list_of_str.append(str(postings[fileIndex]["court"]))
+    posting = "".join(list_of_str) + "\n"
+    
     return posting
     
 # =========================================================================
