@@ -127,6 +127,12 @@ def importDS(outputFile):
     DS = json.load(data)
     return DS
 
+
+# =========================================================================
+#
+#           Justin's Part
+#
+# =========================================================================
 def main():
     f = open(file_of_queries)
     queries = f.readlines()
@@ -151,11 +157,11 @@ def processquery(query):
         query[0] = doAnd(query[0], query[1])
         del query[1]
 
-    query.sort(key=lambda x:x[1], reverse=True)
     query = query[0]
     if len(query) == 0:
         return ""
     else:
+        query.sort(key=lambda x: x[1], reverse=True)
         return [str(i) for i in zip(*query)[0]]
 
 def stemmer(list):
@@ -175,8 +181,13 @@ def convertToScores(list):
         word = list[i]
         ph.extractPostingList(word)
         df = int(ph.getDocFreq(word))
-        ltc[word] = math.log10(1.0/df)
+        if df != 0:
+            ltc[word] = math.log10(1.0/df)
+        else:
+            ltc[word] = 0
         sum += pow(ltc[word], 2)
+    if sum == 0:
+        sum = 1
     for word in ltc:
         ltc[word] /= pow(sum, 0.5)
 
