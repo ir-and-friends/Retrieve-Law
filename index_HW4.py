@@ -54,7 +54,7 @@ dummyDocs["2"]["date_posted"] = list(("19", "April", "2019"))
 dummyDocs["2"]["court"] = list(("Supreme", "court"))
 dummyDocs["3"] = dict()
 title = "This is the title"
-dummyDocs["3"]["title"] = title[0].split()
+dummyDocs["3"]["title"] = title.split()
 dummyDocs["3"]["content"] = list(("This", "is", "the", "case", "where", "the", "fish", "was", "eaten"))
 dummyDocs["3"]["date_posted"] = list(("19", "April", "2019"))
 dummyDocs["3"]["court"] = list(("Supreme", "court"))
@@ -71,11 +71,7 @@ class Indexer:
         self.postingsFile = output_file_postings
         self.tempPostingA = "tempA.txt"
         self.tempPostingB = "tempB.txt"
-        self.local_dictionary = dict()
-        self.local_posting_asList = list()
-        self.dictionary = dict()
         self.numberOfFiles = len(self.input_dictionary)
-        self.dictionary["DOC_ID"] = dict()
         self.whichFile = 1
         data = open(self.tempPostingA, "w")
         data.write("")
@@ -88,36 +84,38 @@ class Indexer:
     def indexDictionary(self, numberOfFilesToProcess = 0): 
         if numberOfFilesToProcess is 0:
             numberOfFilesToProcess = self.numberOfFiles
-        self.processFiles(numberOfFilesToProcess)
+        dictionary = self.processFiles(numberOfFilesToProcess, self.input_dictionary)
         print("Pickle")
-        exportDS(self.dictionary, self.dictionaryFile)
+        exportDS(dictionary, self.dictionaryFile)
         
 # =========================================================================
 #       Processes Files in directory and calls self.addWords()
 #           input: numberOfFilesToProcess(int)
 #           output: None
 # =========================================================================   
-    def processFiles(self, numberOfFilesToProcess):
+    def processFiles(self, numberOfFilesToProcess, input_dictionary):
+        Main_Dictionary = dict()
+        Main_Dictionary["DOC_ID"] = dict()
+        local_posting_asList = list()
+        local_dictionary = dict()
         count = 0        
-        for caseID in self.input_dictionary:
+        for caseID in input_dictionary:
             if count > numberOfFilesToProcess:
                 break
-            print("Making grams")
-            titleDict = makeGrams(self.input_dictionary[caseID]["title"])
-            contentDict = makeGrams(self.input_dictionary[caseID]["content"])
-            dateDict = makeGrams(self.input_dictionary[caseID]["date_posted"])
-            courtDict = makeGrams(self.input_dictionary[caseID]["court"])
-            dictToProcess = dict(title = titleDict, content = contentDict, date = dateDict, court = courtDict)
-            length  = tf_idf.getLncLen(makeUniGrams(self.input_dictionary[caseID]["content"]))
-            self.dictionary["DOC_ID"][str(count)] = tuple((caseID, length))
-            print("Adding Words")
-            self.addWords(dictToProcess, str(count))
+            titleDict = makeGrams(input_dictionary[caseID]["title"])
+            contentDict = makeGrams(input_dictionary[caseID]["content"])
+            dateDict = makeGrams(input_dictionary[caseID]["date_posted"])
+            courtDict = makeGrams(input_dictionary[caseID]["court"])
+            dictToProcess = dict(title = titleDict, content = contentDict, date_posted = dateDict, court = courtDict)
+            length  = tf_idf.getLncLen(makeUniGrams(input_dictionary[caseID]["content"]))
+            Main_Dictionary["DOC_ID"][str(count)] = tuple((caseID, length))
+            local_dictionary, local_posting_asList = self.addWords(dictToProcess, str(count), local_posting_asList, local_dictionary)
             
             if ((count + 1) % 10) is 0:
                 print(str(count+1) + " out of " + str(numberOfFilesToProcess) + " files processed.")
             
-            if ((count + 1) % 10000) is 0:
-                print("Writing File")
+            if ((count + 1) % 20000) is 0:
+                print("Writing to disk")
                 if self.whichFile is 1:
                     oldFile = self.tempPostingA
                     newFile = self.tempPostingB
@@ -126,15 +124,14 @@ class Indexer:
                     oldFile = self.tempPostingB
                     newFile = self.tempPostingA
                     self.whichFile *= -1
-                self.mergePosting(self.local_dictionary, self.local_posting_asList, oldFile, newFile)
-                self.local_dictionary = dict()
-                self.local_posting_asList = list()
+                Main_Dictionary = self.mergePosting(local_dictionary, local_posting_asList, oldFile, newFile, Main_Dictionary, numberOfFilesToProcess)
+                local_dictionary = dict()
+                local_posting_asList = list()
                 
             count += 1
             # lengthOfFile = self.calcLen(words)
             # self.dictionary["DOC_ID"][str(fileNumber)] = tuple((fileName, lengthOfFile)) 
         
-        print("Writing File")
         if self.whichFile is 1:
             oldFile = self.tempPostingA
             newFile = self.tempPostingB
@@ -143,9 +140,10 @@ class Indexer:
             oldFile = self.tempPostingB
             newFile = self.tempPostingA
             self.whichFile *= -1
-        self.mergePosting(self.local_dictionary, self.local_posting_asList, oldFile, self.postingsFile)
-        self.local_dictionary = dict()
-        self.local_posting_asList = list()
+        print("Writing to disk")
+        Main_Dictionary = self.mergePosting(local_dictionary, local_posting_asList, oldFile, self.postingsFile, Main_Dictionary, numberOfFilesToProcess)
+        
+        return Main_Dictionary
         
         
 # =========================================================================
@@ -153,66 +151,59 @@ class Indexer:
 #           input: words(Dictionary), fileName(String)
 #           output: None
 # =========================================================================
-    def addWords(self, dictionary, fileIndex):
+    def addWords(self, dictionary, fileIndex, local_posting_asList, local_dictionary):
         for word in dictionary["title"]:
             #print(word)
-            self.addWord(word, fileIndex)
-            index = self.local_dictionary[word]["index"]
-            if fileIndex not in self.local_posting_asList[index]:
-                self.local_posting_asList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
-                self.local_dictionary[word]["docFreq"] += 1
-            self.local_posting_asList[index][fileIndex]["title"] += dictionary["title"][word]
+            local_dictionary, local_posting_asList = self.addWord(word, fileIndex, local_dictionary, local_posting_asList)
+            index = local_dictionary[word]["index"]
+            if fileIndex not in local_posting_asList[index]:
+                local_posting_asList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
+                local_dictionary[word]["docFreq"] += 1
+            local_posting_asList[index][fileIndex]["title"] += dictionary["title"][word]
         
         for word in dictionary["content"]:
             #print(word)
-            self.addWord(word, fileIndex)
-            index = self.local_dictionary[word]["index"]
-            if fileIndex not in self.local_posting_asList[index]:
-                self.local_posting_asList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
-                self.local_dictionary[word]["docFreq"] += 1
-            self.local_posting_asList[index][fileIndex]["content"] += dictionary["content"][word]
+            local_dictionary, local_posting_asList = self.addWord(word, fileIndex, local_dictionary, local_posting_asList)
+            index = local_dictionary[word]["index"]
+            if fileIndex not in local_posting_asList[index]:
+                local_posting_asList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
+                local_dictionary[word]["docFreq"] += 1
+            local_posting_asList[index][fileIndex]["content"] += dictionary["content"][word]
             
         for word in dictionary["date_posted"]:
             #print(word)
-            self.addWord(word, fileIndex)
-            index = self.local_dictionary[word]["index"]
-            if fileIndex not in self.local_posting_asList[index]:
-                self.local_posting_asList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
-                self.local_dictionary[word]["docFreq"] += 1
-            self.local_posting_asList[index][fileIndex]["date_posted"] += dictionary["date_posted"][word]
+            local_dictionary, local_posting_asList = self.addWord(word, fileIndex, local_dictionary, local_posting_asList)
+            index = local_dictionary[word]["index"]
+            if fileIndex not in local_posting_asList[index]:
+                local_posting_asList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
+                local_dictionary[word]["docFreq"] += 1
+            local_posting_asList[index][fileIndex]["date_posted"] += dictionary["date_posted"][word]
         
         for word in dictionary["court"]:
             #print(word)
-            self.addWord(word, fileIndex)
-            index = self.local_dictionary[word]["index"]
-            if fileIndex not in self.local_posting_asList[index]:
-                self.local_posting_asList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
-                self.local_dictionary[word]["docFreq"] += 1
-            self.local_posting_asList[index][fileIndex]["court"] += dictionary["court"][word]
-        # for word in words:
-            # if word not in self.local_dictionary:
-                # #print("found new word " + word + " in document " + fileName)
-                # self.local_dictionary[word] = dict(docFreq = 1, index = len(self.local_posting_asList))
-                # tempList = list()
-                # tempList.append(tuple((fileName, words[word])))
-                # self.local_posting_asList.append(tempList)
-            # else:
-                # self.local_dictionary[word]["docFreq"] += 1
-                # index = self.local_dictionary[word]["index"]
-                # self.local_posting_asList[index].append(tuple((fileName, words[word])))
+            local_dictionary, local_posting_asList = self.addWord(word, fileIndex, local_dictionary, local_posting_asList)
+            index = local_dictionary[word]["index"]
+            if fileIndex not in local_posting_asList[index]:
+                local_posting_asList[index][fileIndex] = dict(title = 0, content = 0, date_posted = 0, court = 0)
+                local_dictionary[word]["docFreq"] += 1
+            local_posting_asList[index][fileIndex]["court"] += dictionary["court"][word]
+        
+        return local_dictionary, local_posting_asList
                 
 # =========================================================================
 #       Adds each word in the file to self.local_dictionary and self.local_posting_asList
 #           input: words(Dictionary), fileName(String)
 #           output: None
 # =========================================================================   
-    def addWord(self, word, count):
-        if word not in self.local_dictionary:
+    def addWord(self, word, count, local_dictionary, local_posting_asList):
+        if word not in local_dictionary:
             #print("found new word " + word + " in document " + str(count))  
-            self.local_dictionary[word] = dict(docFreq = 1, index = len(self.local_posting_asList))
+            local_dictionary[word] = dict(docFreq = 1, index = len(local_posting_asList))
             tempList = dict()
             tempList[count] = dict(title = 0, content = 0, date_posted = 0, court = 0)
-            self.local_posting_asList.append(tempList)
+            local_posting_asList.append(tempList)
+            
+        return local_dictionary, local_posting_asList
                 
         
 # =========================================================================
@@ -220,36 +211,43 @@ class Indexer:
 #           input: 
 #           output: 
 # =========================================================================
-    def mergePosting(self, local_dictionary, local_posting_asList, oldPostingFilePath, newPostingFile):
+    def mergePosting(self, local_dictionary, local_posting_asList, oldPostingFilePath, newPostingFile, Main_Dictionary, numberOfFiles):
         oldPostingFile = open(oldPostingFilePath, 'r')
         data = open(newPostingFile, "w")
         data.write("")
         data.close()
         
-        for word in local_dictionary:
-            if word in self.dictionary:
-                posting = extractPostingList(word, self.dictionary, oldPostingFile).rstrip()
-                index = local_dictionary[word]["index"]
-                posting = createPosting(local_posting_asList[index], posting)
-                startPointer = addPosting(posting, newPostingFile)
-                self.dictionary[word]["index"] = startPointer
-                self.dictionary[word]["docFreq"] += local_dictionary[word]["docFreq"]
-            else:
-                posting = ""
-                index = local_dictionary[word]["index"]
-                posting = createPosting(local_posting_asList[index], posting)
-                startPointer = addPosting(posting, newPostingFile)
-                self.dictionary[word] = dict()
-                self.dictionary[word]["index"] = startPointer
-                self.dictionary[word]["docFreq"] = local_dictionary[word]["docFreq"]
-        
-        for word in self.dictionary:
-            if not word in local_dictionary:
+        with open(newPostingFile, "a+") as data:
+            for word in local_dictionary:
+                if word in Main_Dictionary:
+                    posting = extractPostingList(word, Main_Dictionary, oldPostingFile).rstrip()
+                    index = local_dictionary[word]["index"]
+                    posting = createPosting(local_posting_asList[index], posting)
+                    startPointer = addPosting(posting, data)
+                    Main_Dictionary[word]["index"] = startPointer
+                    Main_Dictionary[word]["docFreq"] += local_dictionary[word]["docFreq"]
+                else:
+                    # if local_dictionary[word]["docFreq"] > (numberOfFiles/2):
+                        # continue
+                    posting = ""
+                    index = local_dictionary[word]["index"]
+                    posting = createPosting(local_posting_asList[index], posting)
+                    startPointer = addPosting(posting, data)
+                    Main_Dictionary[word] = dict()
+                    Main_Dictionary[word]["index"] = startPointer
+                    Main_Dictionary[word]["docFreq"] = local_dictionary[word]["docFreq"]
+            
+            undone = set(Main_Dictionary)-set(local_dictionary)
+            
+            for word in undone:
                 if word == "DOC_ID":
                     continue
-                posting = extractPostingList(word, self.dictionary, oldPostingFile)
-                startPointer = addPosting(posting, newPostingFile)
-                self.dictionary[word]["index"] = startPointer
+                posting = extractPostingList(word, Main_Dictionary, oldPostingFile)
+                startPointer = addPosting(posting, data)
+                Main_Dictionary[word]["index"] = startPointer
+        data.close
+                
+        return Main_Dictionary
         
 # =========================================================================
 #       Processes input of dictionary of lists into dictionary of dictionary
@@ -373,7 +371,7 @@ def createPosting(postings, posting):
         list_of_str.append(str(len(str(postings[fileIndex]["content"]))).zfill(1) + str(postings[fileIndex]["content"]))
         list_of_str.append(str(postings[fileIndex]["date_posted"]))
         list_of_str.append(str(postings[fileIndex]["court"]))
-    posting = "".join(list_of_str) + "\n"
+    posting = posting + "".join(list_of_str) + "\n"
     
     return posting
     
@@ -382,12 +380,10 @@ def createPosting(postings, posting):
 #           input: posting(String), outputFile(String)
 #           output: startPointer
 # =========================================================================
-def addPosting(Posting, outputFile):
-    outputData = open(outputFile, "a+")
+def addPosting(Posting, outputData):
     outputData.seek(0,2)
     startPointer = outputData.tell()
     outputData.write(Posting)
-    outputData.close()
     return startPointer
     
 #=========================================================================
@@ -408,9 +404,10 @@ def extractPostingList(word, dictionary, postingsFile):
 #           output: None
 # =========================================================================
 def exportDS(DS, outputFile):
-    DS_string = pickle.dumps(DS)
+    DS_string = json.dumps(DS)
     outputFile = open(outputFile, 'w')
     outputFile.write(DS_string)
+    outputFile.close()
     return 
     
 # =========================================================================
@@ -428,7 +425,9 @@ def importDSByte(inputFile):
 #                           RUN
 #
 # =========================================================================
+print("importing dict")
 input_dictionary = importDSByte(input_dictionary)
+print("import done")
 indexer = Indexer(input_dictionary, output_file_dictionary, output_file_postings)
 indexer.indexDictionary(0)
 # python index_HW4.py -i preprocessing.txt -d dictionary.txt -p postings.txt
