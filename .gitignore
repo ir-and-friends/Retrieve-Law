@@ -23,3 +23,7 @@ Dataset.xlsx
 >>>>>>> d6ae9ca5add3ce7fe5a35e7a99bf12052df23e03
 tf_idf.pyc
 *.txt
+Data/Posting&Dict.zip
+BiGramContent_TriGramRest.zip
+Archive/preprocess.py
+Archive/Budget.zip
