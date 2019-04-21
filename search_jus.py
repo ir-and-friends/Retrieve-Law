@@ -2,103 +2,8 @@
 import sys
 import getopt
 import nltk
-import pickle
-
-def main():
-    f = open(file_of_queries)
-    queries = f.readlines()
-    f.close()
-
-    results = []
-    for line in queries:
-        results.append(processquery(line))
-
-    f = open(file_of_output, 'w+')
-    f.writelines(results)
-    f.close()
-
-def processquery(query):
-    # Since only boolean operator is AND, each element in this list will be AND-merged
-    query = query.split(" AND ")
-    stemmer(query)
-    convertToScores(query)
-
-    # Since skip lists aren't implemented, no need to prioritise shortest query
-    while len(query) > 1:
-        doAnd(query[0], query[1])
-
-    query.sort(key=lambda x:x[1], reverse=True)
-    return query
-
-def stemmer(list):
-    # Uses the same stemmer as index phase
-    ps = nltk.stem.PorterStemmer()
-    for i in range(len(list)):
-        list[i] = ps.stem(list[i])
-
-def convertToScores(list):
-    # Retrieve postings and calculate lnc
-    # Returns array of postings of format [str(docID), float(lnc)]
-    ph = PostingHandler(dictionary_file, postings_file)
-    for i in range(len(list)):
-        word = list[i]
-        list[i] = []
-        ph.extractPostingList(word)
-        for count in range(ph.getDocFreq(word)):
-            post = ph.getNextPosting()
-            docID = post.getDocID()
-            df = ph.getDocLength(docID)
-            list[i].append([docID, post.getTF()/df])
-
-def doAnd(t1, t2):
-    # AND-merge of two nested arrays of format [[docID, score], ...]
-    # Returns nested array of similar format
-    i = j = 0
-    result = []
-    while i < len(t1) and j < len(t2):
-        d1, s1 = t1[i]
-        d2, s2 = t2[j]
-        if d1 == d2:
-            result.append([d1, s1 * s2])
-            i += 1
-            j += 1
-        elif d1 < d2:
-            i += 1
-        else:
-            j += 1
-
-    return result
-
-
-def usage():
-    print "usage: " + sys.argv[0] + " -d dictionary-file -p postings-file -q file-of-queries -o output-file-of-results"
-
-
-dictionary_file = postings_file = file_of_queries = output_file_of_results = None
-
-try:
-    opts, args = getopt.getopt(sys.argv[1:], 'd:p:q:o:')
-except getopt.GetoptError, err:
-    usage()
-    sys.exit(2)
-
-for o, a in opts:
-    if o == '-d':
-        dictionary_file = a
-    elif o == '-p':
-        postings_file = a
-    elif o == '-q':
-        file_of_queries = a
-    elif o == '-o':
-        file_of_output = a
-    else:
-        assert False, "unhandled option"
-
-if dictionary_file == None or postings_file == None or file_of_queries == None or file_of_output == None:
-    usage()
-    sys.exit(2)
-
-main()
+import json
+import math
 
 # =========================================================================
 #
@@ -219,5 +124,129 @@ class PostingHandler:
 # =========================================================================
 def importDS(outputFile):
     data = open(outputFile, 'r')
-    DS = pickle.load(data)
+    DS = json.load(data)
     return DS
+
+def main():
+    f = open(file_of_queries)
+    queries = f.readlines()
+    f.close()
+
+    results = []
+    for line in queries:
+        results.append(' '.join(processquery(line[:-1])) + "\n")
+
+    f = open(file_of_output, 'w+')
+    f.writelines(results)
+    f.close()
+
+def processquery(query):
+    # Since only boolean operator is AND, each element in this list will be AND-merged
+    query = query.split(" AND ")
+    stemmer(query)
+    convertToScores(query)
+
+    # Since skip lists aren't implemented, no need to prioritise shortest query
+    while len(query) > 1:
+        query[0] = doAnd(query[0], query[1])
+        del query[1]
+
+    query.sort(key=lambda x:x[1], reverse=True)
+    query = query[0]
+    if len(query) == 0:
+        return ""
+    else:
+        return [str(i) for i in zip(*query)[0]]
+
+def stemmer(list):
+    # Uses the same stemmer as index phase
+    ps = nltk.stem.PorterStemmer()
+    for i in range(len(list)):
+        list[i] = ps.stem(list[i])
+
+def convertToScores(list):
+    # Retrieve postings and calculate lnc.ltc
+    # Returns array of postings of format [str(docID), float(lnc)]
+    ph = PostingHandler(dictionary_file, postings_file)
+
+    ltc = {}
+    sum = 0
+    for i in range(len(list)):
+        word = list[i]
+        ph.extractPostingList(word)
+        df = int(ph.getDocFreq(word))
+        ltc[word] = math.log10(1.0/df)
+        sum += pow(ltc[word], 2)
+    for word in ltc:
+        ltc[word] /= pow(sum, 0.5)
+
+    lnc = []
+    for i in range(len(list)):
+        word = list[i]
+        list[i] = []
+        ph.extractPostingList(word)
+        sum = 0
+        for count in range(int(ph.getDocFreq(word))):
+            post = ph.getNextPosting()
+
+            docID = post.getDocID()
+            tf = post.getTF()
+            lnc.append([docID, 1 + math.log10(tf)])
+            sum += pow(1 + math.log10(tf), 2)
+        for j in range(len(lnc)):
+            docID = lnc[j][0]
+            lncScore = lnc[j][1] / pow(sum, 0.5)
+
+            list[i].append([docID, lncScore * ltc[word]])
+
+def doAnd(t1, t2):
+    # AND-merge of two nested arrays of format [[docID, score], ...]
+    # Returns nested array of similar format
+    i = j = 0
+    result = []
+    while i < len(t1) and j < len(t2):
+        print("i: %d of %d\nj: %d of %d" % (i, len(t1), j, len(t2)))
+        d1, s1 = t1[i]
+        d2, s2 = t2[j]
+        if d1 == d2:
+            result.append([d1, s1 * s2])
+            i += 1
+            j += 1
+        elif d1 < d2:
+            i += 1
+        else:
+            j += 1
+
+    return result
+
+
+def usage():
+    print "usage: " + sys.argv[0] + " -d dictionary-file -p postings-file -q file-of-queries -o output-file-of-results"
+
+
+dictionary_file = postings_file = file_of_queries = output_file_of_results = None
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], 'd:p:q:o:')
+except getopt.GetoptError, err:
+    usage()
+    sys.exit(2)
+
+for o, a in opts:
+    if o == '-d':
+        dictionary_file = a
+    elif o == '-p':
+        postings_file = a
+    elif o == '-q':
+        file_of_queries = a
+    elif o == '-o':
+        file_of_output = a
+    else:
+        assert False, "unhandled option"
+
+if dictionary_file == None or postings_file == None or file_of_queries == None or file_of_output == None:
+    usage()
+    sys.exit(2)
+
+main()
+
