@@ -9,13 +9,41 @@ import math
 import collections
 import cPickle as pickle
 import tf_idf
-from retrieve_dict import preprocess
 from index_HW4 import *
-import json
 
+# =========================================================================
+#
+#                           ARGS PASS
+#
+# =========================================================================
 
 def usage():
     print "usage: " + sys.argv[0] + " -d dictionary-file -p postings-file -q file-of-queries -o output-file-of-results"
+
+dictionary_file = postings_file = file_of_queries = output_file_of_results = None
+    
+try:
+    opts, args = getopt.getopt(sys.argv[1:], 'd:p:q:o:')
+except getopt.GetoptError, err:
+    usage()
+    sys.exit(2)
+
+for o, a in opts:
+    if o == '-d':
+        dictionary_file = a
+    elif o == '-p':
+        postings_file = a
+    elif o == '-q':
+        file_of_queries = a
+    elif o == '-o':
+        file_of_output = a
+    else:
+        assert False, "unhandled option"
+
+if dictionary_file == None or postings_file == None or file_of_queries == None or file_of_output == None:
+    usage()
+    sys.exit(2)
+
 
 # =========================================================================
 #
@@ -29,7 +57,7 @@ class Posting:
         self.currentContentCount = contentCount
         self.currentDateCount = dateCount
         self.currentCourtCount = courtCount
-        self.currentCombinedTF = titleCount + contentCount + dateCount + courtCount
+        self.currentCombinedTF = titleCount + contentCount + dateCount + courtCount\
         
         
     def getDocID(self):
@@ -79,10 +107,7 @@ class PostingHandler:
             return self.dictionary[word]["docFreq"]
         else:
             return 0
-
-    def getNumDoc(self):
-        return len(self.dictionary["DOC_ID"])
-
+            
     def getStartPointer(self, word):
         if word in self.dictionary:
             return self.dictionary[word]["index"]
@@ -145,53 +170,44 @@ def getDocName(dictionary, docID):
 #           input: dictionary, query(dict)
 #           output: query_scores(dict)
 # =========================================================================
-def queryToScore(query):
-    global postingHandler
-    uniDict = makeUniGrams(preprocess(query))
-    q_len = tf_idf.getLtcLen(postingHandler, uniDict)
-    N = postingHandler.getNumDoc()
+def queryToScore(dictionary, query):
+    uniDict = makeUniGrams(processText(query))
+    q_len = tf_idf.getLtcLen(dictionary, uniDict)
+    N = len(dictionary["DOC_ID"])
     for word in uniDict:
-        df = postingHandler.getDocFreq(word)
+        df = dictionary[word]['docFreq']
         uniDict[word] = tf_idf.get_ltc(uniDict[word], N, df, q_len)
     return uniDict
 
 
 # =========================================================================
-#       Processes a free text query
-#           input: dictionary, query(String)
-#           output: sorted_results(list)
+#       Return the docName given DOC_ID
+#           input: dictionary, DOC_ID(int)
+#           output: docName(String)
 # =========================================================================
-def processFreeText(query):
-    global postingHandler
-    q_score = queryToScore(query)
+def processQuery(dictionary, query):
+    global postingsFile
+    q_score = queryToScore(dictionary, query)
     score_list = {}
     for q_word in q_score:
-        postingHandler.extractPostingList(q_word)
-        posting = postingHandler.getNextPosting()
+        p_list = extractPostingList(q_word, dictionary, postingsFile)
+        posting = getNextPosting(p_list)
         while posting is not None:
-            docID = posting.getDocID()
-            docName = postingHandler.getDocName(docID)
-            temp_score = [0.0, 0.0, 0.0, 0.0, 0.0]
+            docID, titleCount, contentCount, dateCount, courtCount, nextStartPointer = posting
+            if docID not in score_list:
+                score_list[docID] = [0.0, 0.0, 0.0, 0.0, 0.0]
             # Scores are contained as
             # [docID, court, title, date, content] as per descending importance
-            temp_score[0] = 1 if docID == q_word else 0
-            temp_score[1] = 1 if posting.getCourtCount() > 0 else 0
-            temp_score[2] = 1 if posting.getTitleCount() > 0 else 0
-            temp_score[3] += tf_idf.get_lnc(posting.getDateCount(), postingHandler.getDocLength(docID)) * q_score[q_word]
-            temp_score[4] += tf_idf.get_lnc(posting.getContentCount(), postingHandler.getDocLength(docID)) * q_score[q_word]
-            if sum(temp_score) > 0:
-                if docName not in score_list:
-                    score_list[docName] = temp_score
-                else:
-                    for i in range(5):
-                        if temp_score[i] > 0:
-                            score_list[docName][i] += temp_score[i] + 1
+            if score_list[docID][0] != 1 and docID == q_word:
+                score_list[docID][0] = 1
+            partial_score = lambda doc_tf, p, q_score: tf_idf.get_lnc(doc_tf, p.getDocLen()) * q_score
+            score_list[docID][1] += partial_score(courtCount, posting, q_score[q_word])
+            score_list[docID][2] += partial_score(titleCount, posting, q_score[q_word])
+            score_list[docID][3] += partial_score(dateCount, posting, q_score[q_word])
+            score_list[docID][4] += partial_score(contentCount, posting, q_score[q_word])
+            posting = getNextPosting(p_list)
 
-            posting = postingHandler.getNextPosting()
-
-    sorted_results = sorted(score_list.items(), key=lambda k:k[1], reverse=True)
-    return sorted_results
-
+    return sorted(score_list.items(), key=lambda k:k[1])
 
 # =========================================================================
 #       Imports the dataStructure using pickle interface
@@ -200,8 +216,8 @@ def processFreeText(query):
 # =========================================================================
 def importDS(outputFile):
     data = open(outputFile, 'r')
-    DS = json.load(data)
-    return DS
+    DS = pickle.load(data)
+    return DS    
     
 # =========================================================================
 #
@@ -227,34 +243,7 @@ def test(dictionary, postingsFile):
 #                           RUN
 #
 # =========================================================================
-if __name__ == "__main__":
-    #queries = processQueries(file_of_queries)
-    dictionary_file = "Fulldictionary.txt"
-    postings_file = "Fullpostings.txt"
-    postingHandler = PostingHandler(dictionary_file, postings_file)
-    res = processFreeText("knife attempted murder wife husband police supreme court")
-    #  python search_HW4.py -d dictionary.txt -p postings.txt -q queries.txt -o output.txt
-
-    dictionary_file = postings_file = file_of_queries = output_file_of_results = None
-
-    # try:
-    #     opts, args = getopt.getopt(sys.argv[1:], 'd:p:q:o:')
-    # except getopt.GetoptError, err:
-    #     usage()
-    #     sys.exit(2)
-    #
-    # for o, a in opts:
-    #     if o == '-d':
-    #         dictionary_file = a
-    #     elif o == '-p':
-    #         postings_file = a
-    #     elif o == '-q':
-    #         file_of_queries = a
-    #     elif o == '-o':
-    #         file_of_output = a
-    #     else:
-    #         assert False, "unhandled option"
-    #
-    # if dictionary_file == None or postings_file == None or file_of_queries == None or file_of_output == None:
-    #     usage()
-    #     sys.exit(2)
+#queries = processQueries(file_of_queries)
+postingHandler = PostingHandler(dictionary_file, postings_file)
+test(postingHandler)
+#  python search_HW4.py -d dictionary.txt -p postings.txt -q queries.txt -o output.txt

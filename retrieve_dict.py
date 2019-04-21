@@ -35,3 +35,5 @@ def openCSV():
         print(dummyDoc)
         print(str(count/length*100)[:5]+'% has done!')
     exportDS(dummyDocs,'preprocessing.txt')
+
+openCSV()
