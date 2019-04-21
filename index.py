@@ -15,24 +15,6 @@ import tf_idf
 def usage():
     print "usage: " + sys.argv[0] + " -i directory-of-documents -d dictionary-file -p postings-file"
 
-dummyDocs = dict()
-dummyDocs["1"] = dict()
-dummyDocs["1"]["title"] = list(("The", "case", "thickens"))
-dummyDocs["1"]["content"] = list(("This", "is", "the", "case", "where", "the", "fish", "was", "eaten"))
-dummyDocs["1"]["date_posted"] = list(("19", "April", "2019"))
-dummyDocs["1"]["court"] = list(("Supreme", "court"))
-dummyDocs["2"] = dict()
-dummyDocs["2"]["title"] = list(("The", "case", "thickens"))
-dummyDocs["2"]["content"] = list(("This", "is", "the", "case", "where", "the", "fish", "was", "eaten"))
-dummyDocs["2"]["date_posted"] = list(("19", "April", "2019"))
-dummyDocs["2"]["court"] = list(("Supreme", "court"))
-dummyDocs["3"] = dict()
-title = "This is the title"
-dummyDocs["3"]["title"] = title.split()
-dummyDocs["3"]["content"] = list(("This", "is", "the", "case", "where", "the", "fish", "was", "eaten"))
-dummyDocs["3"]["date_posted"] = list(("19", "April", "2019"))
-dummyDocs["3"]["court"] = list(("Supreme", "court"))
-
 # =========================================================================
 #
 #                           Methods

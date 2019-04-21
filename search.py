@@ -230,26 +230,7 @@ def processFreeText(query):
 def importDS(outputFile):
     data = open(outputFile, 'r')
     DS = json.load(data)
-    return DS    
-    
-# =========================================================================
-#
-#                           TEST
-#
-# =========================================================================    
-def test(dictionary, postingsFile):   
-    for word in dictionary:
-        if word == "DOC_ID":
-            continue
-        print(word)
-        posting = extractPostingList(word, dictionary, postingsFile)
-        df = dictionary[word]["docFreq"]
-        nextStartPointer = 0
-        for index in range(df):
-            docID, titleCount, contentCount, dateCount, courtCount, nextStartPointer = extractPosting(posting, nextStartPointer)
-            print("Case number = " + getDocName(dictionary, docID))
-            print(contentCount)
-        print(getDocLength(dictionary, docID))
+    return DS
 
 # =========================================================================
 #
