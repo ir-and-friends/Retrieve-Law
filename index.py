@@ -1,13 +1,9 @@
 #!/usr/bin/python
-import re
-import nltk
 import sys
 import getopt
 
-import os
 import json
 import cPickle as pickle
-import math
 import tf_idf
 
 # =========================================================================
@@ -18,29 +14,6 @@ import tf_idf
 
 def usage():
     print "usage: " + sys.argv[0] + " -i directory-of-documents -d dictionary-file -p postings-file"
-
-
-input_directory = output_file_dictionary = output_file_postings = None
-
-try:
-    opts, args = getopt.getopt(sys.argv[1:], 'i:d:p:')
-except getopt.GetoptError, err:
-    usage()
-    sys.exit(2)
-
-for o, a in opts:
-    if o == '-i':  # input dictionary
-        input_dictionary = a
-    elif o == '-d':  # dictionary file
-        output_file_dictionary = a
-    elif o == '-p':  # postings file
-        output_file_postings = a
-    else:
-        assert False, "unhandled option"
-
-if input_dictionary == None or output_file_postings == None or output_file_dictionary == None:
-    usage()
-    sys.exit(2)
 
 dummyDocs = dict()
 dummyDocs["1"] = dict()
@@ -268,7 +241,6 @@ class Indexer:
                 posting = extractPostingList(word, Main_Dictionary, oldPostingFile)
                 startPointer = addPosting(posting, data)
                 Main_Dictionary[word]["index"] = startPointer
-        data.close
                 
         return Main_Dictionary
  
@@ -454,9 +426,33 @@ def importDSByte(inputFile):
 #                           RUN
 #
 # =========================================================================
-print("importing dict")
-input_dictionary = importDSByte(input_dictionary)
-print("import done")
-indexer = Indexer(input_dictionary, output_file_dictionary, output_file_postings)
-indexer.indexDictionary(0)
+if __name__ == "__main__":
+
+    input_directory = output_file_dictionary = output_file_postings = None
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'i:d:p:')
+    except getopt.GetoptError, err:
+        usage()
+        sys.exit(2)
+
+    for o, a in opts:
+        if o == '-i':  # input dictionary
+            input_dictionary = a
+        elif o == '-d':  # dictionary file
+            output_file_dictionary = a
+        elif o == '-p':  # postings file
+            output_file_postings = a
+        else:
+            assert False, "unhandled option"
+
+    if input_dictionary == None or output_file_postings == None or output_file_dictionary == None:
+        usage()
+        sys.exit(2)
+
+    print("importing dict")
+    input_dictionary = importDSByte(input_dictionary)
+    print("import done")
+    indexer = Indexer(input_dictionary, output_file_dictionary, output_file_postings)
+    indexer.indexDictionary(0)
 # python index_HW4_budget.py -i preprocessing.txt -d dictionary.txt -p postings.txt

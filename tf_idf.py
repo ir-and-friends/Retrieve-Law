@@ -7,7 +7,7 @@ import math
 # =========================================================================
 
 def get_lt(tf, N, df):
-    return (1.0 + math.log10(tf)) * math.log10(N / df)
+    return (1.0 + math.log10(tf)) * math.log10(float(N) / float(df))
 
 # =========================================================================
 #       Return the log-none weight value
@@ -25,7 +25,7 @@ def get_ln(tf):
 # =========================================================================
 
 def get_ltc(tf, N, df, q_len):
-    return (1.0 + math.log10(tf)) * math.log10(N / df) / q_len
+    return (1.0 + math.log10(tf)) * math.log10(float(N) / float(df)) / q_len
 
 # =========================================================================
 #       Return the log-none-cos norm value
@@ -59,16 +59,13 @@ def getLncLen(words):
 #           output: docName(String)
 # =========================================================================
 
-def getLtcLen(dictionary, words):
-    N = len(dictionary["DOC_ID"])
+def getLtcLen(postingHandler, words):
+    N = postingHandler.getNumDoc()
     sum_w = 0.0
     for w in words:
-        if w not in dictionary:
-            continue
-        else:
-            df = dictionary[w]['docFreq']
-            tf = words[w]
-            sum_w += get_lt(tf, N, df) ** 2
+        df = postingHandler.getDocFreq(w)
+        tf = words[w]
+        sum_w += get_lt(tf, N, df) ** 2
 
     # Apply sqrt
     ltc_len = math.sqrt(sum_w)
