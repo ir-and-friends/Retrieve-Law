@@ -1,3 +1,11 @@
+dict.txt
+Test.zip
+Test/
+ClassesForSearch.py
+Fullpreprocessing.txt
+tempB.txt
+tempA.txt
+index_HW4_TEST.py
 postings.txt
 preprocessing.txt
 data/dataset.csv
@@ -12,3 +20,6 @@ Dataset.xlsx
 .idea/modules.xml
 .idea/Retrieve-Law.iml
 .idea/misc.xml
+>>>>>>> d6ae9ca5add3ce7fe5a35e7a99bf12052df23e03
+tf_idf.pyc
+*.txt
