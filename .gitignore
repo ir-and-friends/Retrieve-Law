@@ -21,3 +21,5 @@ Dataset.xlsx
 .idea/Retrieve-Law.iml
 .idea/misc.xml
 >>>>>>> d6ae9ca5add3ce7fe5a35e7a99bf12052df23e03
+tf_idf.pyc
+*.txt
