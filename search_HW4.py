@@ -280,7 +280,7 @@ def processBoolQuery(query):
         return ""
     else:
         query.sort(key=lambda x: x[1], reverse=True)
-        print query
+        # print query
         result = [str(i) for i in zip(*query)[0]]
         return ' '.join(result)
 
@@ -322,7 +322,7 @@ def convertToScores(list):
         for count in range(int(ph.getDocFreq(word))):
             post = ph.getNextPosting()
 
-            docID = post.getDocID()
+            docID = ph.getDocName(post.getDocID())
             tf = post.getTF()
             lnc.append([docID, 1 + math.log10(tf)])
             sum += pow(1 + math.log10(tf), 2)
@@ -340,7 +340,7 @@ def doAnd(t1, t2):
     i = j = 0
     result = []
     while i < len(t1) and j < len(t2):
-        print("i: %d of %d\nj: %d of %d" % (i, len(t1), j, len(t2)))
+        # print("i: %d of %d\nj: %d of %d" % (i, len(t1), j, len(t2)))
         d1, s1 = t1[i]
         d2, s2 = t2[j]
         if d1 == d2:
