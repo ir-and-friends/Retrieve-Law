@@ -7,9 +7,9 @@ import getopt
 
 import math
 import collections
-import cPickle as pickle
+import json
 import tf_idf
-from index_HW4 import *
+# from index_HW4 import *
 
 # =========================================================================
 #
@@ -155,8 +155,29 @@ class PostingHandler:
         self.currentPosting = Posting(docID, titleCount, contentCount, dateCount, courtCount)
         
         return self.currentPosting
-        
-    
+
+# =========================================================================
+#
+#                           MAIN
+#
+# =========================================================================
+def main():
+    f = open(file_of_queries)
+    queries = f.readlines()
+    f.close()
+
+    output = []
+    for line in queries:
+        line = line.replace('\n', '')
+        if line.find(" AND ") != -1:
+            output.append(processBoolQuery(line) + '\n')
+        else:
+            output.append(processFreeText(line) + '\n')
+
+    f = open(file_of_output, 'w+')
+    f.writelines(output)
+    f.close()
+
 # =========================================================================
 #       Return the docName given DOC_ID
 #           input: dictionary, DOC_ID(int)
@@ -216,7 +237,7 @@ def processQuery(dictionary, query):
 # =========================================================================
 def importDS(outputFile):
     data = open(outputFile, 'r')
-    DS = pickle.load(data)
+    DS = json.load(data)
     return DS    
     
 # =========================================================================
@@ -237,13 +258,110 @@ def test(dictionary, postingsFile):
             print("Case number = " + getDocName(dictionary, docID))
             print(contentCount)
         print(getDocLength(dictionary, docID))
-    
+
+# =========================================================================
+#
+#           Boolean Search
+#
+# =========================================================================
+def processBoolQuery(query):
+    # Since only boolean operator is AND, each element in this list will be AND-merged
+    query = query.split(" AND ")
+    stemmer(query)
+    convertToScores(query)
+
+    # Since skip lists aren't implemented, no need to prioritise shortest query
+    while len(query) > 1:
+        query[0] = doAnd(query[0], query[1])
+        del query[1]
+
+    query = query[0]
+    if len(query) == 0:
+        return ""
+    else:
+        query.sort(key=lambda x: x[1], reverse=True)
+        # print query
+        result = [str(i) for i in zip(*query)[0]]
+        return ' '.join(result)
+
+def stemmer(list):
+    # Uses the same stemmer as index phase
+    ps = nltk.stem.PorterStemmer()
+    for i in range(len(list)):
+        if list[i][0] == "'" or list[i][0] == '"':
+            list[i] = list[i][1:-1]
+        list[i] = ps.stem(list[i])
+
+def convertToScores(list):
+    # Retrieve postings and calculate lnc.ltc
+    # Returns array of postings of format [str(docID), float(lnc)]
+    ph = PostingHandler(dictionary_file, postings_file)
+
+    ltc = {}
+    sum = 0
+    for i in range(len(list)):
+        word = list[i]
+        ph.extractPostingList(word)
+        df = int(ph.getDocFreq(word))
+        if df != 0:
+            ltc[word] = math.log10(1.0/df)
+        else:
+            ltc[word] = 0
+        sum += pow(ltc[word], 2)
+    if sum == 0:
+        sum = 1
+    for word in ltc:
+        ltc[word] /= pow(sum, 0.5)
+
+    lnc = []
+    for i in range(len(list)):
+        word = list[i]
+        list[i] = []
+        ph.extractPostingList(word)
+        sum = 0
+        for count in range(int(ph.getDocFreq(word))):
+            post = ph.getNextPosting()
+
+            docID = ph.getDocName(post.getDocID())
+            tf = post.getTF()
+            lnc.append([docID, 1 + math.log10(tf)])
+            sum += pow(1 + math.log10(tf), 2)
+        if sum == 0:
+            sum = 1
+        for j in range(len(lnc)):
+            docID = lnc[j][0]
+            lncScore = lnc[j][1] / pow(sum, 0.5)
+
+            list[i].append([docID, lncScore * ltc[word]])
+
+def doAnd(t1, t2):
+    # AND-merge of two nested arrays of format [[docID, score], ...]
+    # Returns nested array of similar format
+    i = j = 0
+    result = []
+    while i < len(t1) and j < len(t2):
+        # print("i: %d of %d\nj: %d of %d" % (i, len(t1), j, len(t2)))
+        d1, s1 = t1[i]
+        d2, s2 = t2[j]
+        if d1 == d2:
+            result.append([d1, s1 * s2])
+            i += 1
+            j += 1
+        elif d1 < d2:
+            i += 1
+        else:
+            j += 1
+
+    return result
+
+
 # =========================================================================
 #
 #                           RUN
 #
 # =========================================================================
+main()
 #queries = processQueries(file_of_queries)
-postingHandler = PostingHandler(dictionary_file, postings_file)
-test(postingHandler)
+# postingHandler = PostingHandler(dictionary_file, postings_file)
+# test(postingHandler)
 #  python search_HW4.py -d dictionary.txt -p postings.txt -q queries.txt -o output.txt
